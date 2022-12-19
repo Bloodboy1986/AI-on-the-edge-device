@@ -29,6 +29,42 @@ extern const char* libfive_git_revision(void);
 extern const char* libfive_git_branch(void);
 
 
+
+//https://stackoverflow.com/questions/58018132/getting-an-image-as-base64-and-writing-as-jpg
+static const char* B64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+const std::string b64encode(const void* data, const size_t &len)
+    {
+        std::string result((len + 2) / 3 * 4, '=');
+        char *p = (char*) data, *str = &result[0];
+        size_t j = 0, pad = len % 3;
+        const size_t last = len - pad;
+
+        for (size_t i = 0; i < last; i += 3)
+        {
+            int n = int(p[i]) << 16 | int(p[i + 1]) << 8 | p[i + 2];
+            str[j++] = B64chars[n >> 18];
+            str[j++] = B64chars[n >> 12 & 0x3F];
+            str[j++] = B64chars[n >> 6 & 0x3F];
+            str[j++] = B64chars[n & 0x3F];
+        }
+        if (pad)  /// set padding
+        {
+            int n = --pad ? int(p[last]) << 8 | p[last + 1] : p[last];
+            str[j++] = B64chars[pad ? n >> 10 & 0x3F : n >> 2];
+            str[j++] = B64chars[pad ? n >> 4 & 0x03F : n << 4 & 0x3F];
+            str[j++] = pad ? B64chars[n << 2 & 0x3F] : '=';
+        }
+        return result;
+    }
+
+std::string b64encode(const std::string& str)
+{
+    return b64encode(str.c_str(), str.size());
+}
+
+
+
 void ClassFlowMQTT::SetInitialParameter(void)
 {
     uri = "";
@@ -292,6 +328,21 @@ bool ClassFlowMQTT::doFlow(string zwtime)
 
             std::string json = flowpostprocessing->getJsonFromNumber(i, "\n");
             MQTTPublish(namenumber + "json", json, SetRetainFlag);
+
+            string base64Image;
+            std::string allImageData = "";
+            string imagePath = "/sdcard/img_tmp/rot.jpg";
+            std::ifstream lastImage(imagePath, std::ios::in | std::ios::binary);
+            if (lastImage.is_open()) {
+                char ch;
+                while (lastImage.get(ch)) {
+                    allImageData += ch;
+                }
+            }
+            base64Image = b64encode(allImageData);
+            //printf ("imagePath %s", base64Image.c_str());
+            lastImage.close();
+            MQTTPublish(namenumber + "image", "data:image/jpg;base64,"+base64Image, SetRetainFlag);
         }
     }
     
